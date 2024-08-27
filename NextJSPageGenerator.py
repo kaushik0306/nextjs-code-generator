@@ -1,6 +1,8 @@
 import streamlit as st
 import os
 import random
+import zipfile
+import tempfile
 
 # Initialize session state variables if they don't exist
 if "sections" not in st.session_state:
@@ -11,6 +13,8 @@ if "input_fields" not in st.session_state:
     st.session_state.input_fields = {}
 if "clear_flag" not in st.session_state:
     st.session_state.clear_flag = False
+if "generated_code" not in st.session_state:
+    st.session_state.generated_code = ""
 
 # Function to add section to the list
 def add_section():
@@ -56,6 +60,27 @@ def reset_inputs():
     st.session_state.input_fields[f"code_{section_count}"] = ""
     st.session_state.clear_flag = False  # Reset the clear flag
 
+# Function to create a ZIP file for download
+def create_zip(output_dir, page_name, page_content):
+    zip_filename = f"{page_name}.zip"
+    zip_path = os.path.join(output_dir, zip_filename)
+    
+    # Create a temporary directory to hold the ZIP contents
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        component_dir = os.path.join(tmpdirname, page_name)
+        os.makedirs(component_dir, exist_ok=True)
+        
+        # Write the page.tsx file
+        page_tsx_path = os.path.join(component_dir, "page.tsx")
+        with open(page_tsx_path, "w") as file:
+            file.write(page_content)
+        
+        # Create a ZIP file
+        with zipfile.ZipFile(zip_path, 'w') as zipf:
+            zipf.write(page_tsx_path, os.path.join(page_name, "page.tsx"))
+    
+    return zip_path
+
 # Streamlit interface
 st.set_page_config(layout="wide")  # Use wide layout
 
@@ -88,13 +113,13 @@ with col1:
     if section_type == "h3 (Subheading)":
         st.session_state.input_fields[f"h3_{section_count}"] = st.text_input("Enter the text for h3", key=f"h3_{section_count}")
     elif section_type == "h4 (Sub-subheading)":
-        st.session_state.input_fields[f"h4_{section_count}"] = st.text_input("Enter the text for h4", key=f"h4_{section_count}")
+        st.session_state.input_fields[f"h4_{section_count}"] = st.text_input("Enter the text for h4", key=f"h4_{st.session_state.section_count}")
     elif section_type == "Paragraph":
-        st.session_state.input_fields[f"para_{section_count}"] = st.text_area("Enter the paragraph text", key=f"para_{section_count}")
+        st.session_state.input_fields[f"para_{section_count}"] = st.text_area("Enter the paragraph text", key=f"para_{st.session_state.section_count}")
     elif section_type == "Unordered List (Bullet points)":
-        st.session_state.input_fields[f"list_{section_count}"] = st.text_area("Enter bullet points (one per line)", key=f"list_{section_count}")
+        st.session_state.input_fields[f"list_{section_count}"] = st.text_area("Enter bullet points (one per line)", key=f"list_{st.session_state.section_count}")
     elif section_type == "Code Chunk":
-        st.session_state.input_fields[f"code_{section_count}"] = st.text_area("Enter the code block (use \\n for new lines)", key=f"code_{section_count}")
+        st.session_state.input_fields[f"code_{section_count}"] = st.text_area("Enter the code block (use \\n for new lines)", key=f"code_{st.session_state.section_count}")
 
     # Button to add a section
     if st.button("Add Section"):
@@ -103,7 +128,7 @@ with col1:
     # Generate the file if sections have been added
     if st.session_state.sections and st.button("Generate Page"):
         # Directory to save the generated .tsx file based on the module name
-        output_dir = os.path.join("generated_pages", page_name)
+        output_dir = "generated_pages"
         os.makedirs(output_dir, exist_ok=True)
 
         # Join sections together
@@ -140,12 +165,25 @@ const {page_name} = () => {{
 export default {page_name};
 """
 
-        # Write the generated content to a .tsx file
-        file_path = os.path.join(output_dir, "page.tsx")
-        with open(file_path, "w") as file:
-            file.write(PAGE_TEMPLATE)
+        # Store the generated code in session state
+        st.session_state.generated_code = PAGE_TEMPLATE
 
-        st.success(f"Page generated successfully at {file_path}")
+        # Write the generated content to a ZIP file
+        zip_path = create_zip(output_dir, page_name, PAGE_TEMPLATE)
+
+        # Provide download link for the ZIP file
+        with open(zip_path, "rb") as zip_file:
+            st.download_button(
+                label="Download ZIP",
+                data=zip_file,
+                file_name=f"{page_name}.zip",
+                mime="application/zip"
+            )
+
+    # Display the generated code if it exists
+    if st.session_state.generated_code:
+        st.subheader("Generated Code:")
+        st.code(st.session_state.generated_code, language="javascript")
 
 # Right column: Display added sections
 with col2:
