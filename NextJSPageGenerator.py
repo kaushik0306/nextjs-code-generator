@@ -39,7 +39,7 @@ def add_section():
     elif section_type == "Unordered List (Bullet points)":
         items = st.session_state.input_fields.get(f"list_{section_count}", "").split("\n")
         if items:
-            items_str = "\n    ".join([f'<li><strong>{item}</strong></li>' for item in items])
+            items_str = "\n    ".join([f'<li>{item}</li>' for item in items])
             st.session_state.sections.append(f'<ul className="list-disc pl-5 mb-4 text-base font-medium leading-relaxed text-body-color sm:text-lg sm:leading-relaxed">\n    {items_str}\n</ul>')
     
     elif section_type == "Code Chunk":
